@@ -1,0 +1,43 @@
+name: Blog API Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Сборка проекта
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore src/SimpleBlog.API/SimpleBlog.API.csproj
+      - run: dotnet build src/SimpleBlog.API --configuration Release --no-restore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blog-api-build
+          path: src/SimpleBlog.API/bin/Release/net8.0/
+          retention-days: 7
+
+  test:
+    name: Запуск тестов
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet test tests/SimpleBlog.API.Tests --verbosity normal
+
+  docker-build:
+    name: Сборка Docker образа
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t simple-blog-api:${{ github.sha }} .
